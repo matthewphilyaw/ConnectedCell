@@ -8,7 +8,7 @@ namespace ConnectedGrid
     class Program
     {
 
-        static int ConnectedCell(int[][] matrix) {
+        static int ConnectedCell(int[,] matrix) {
             var cellRegionIds = new Dictionary<string, int>(); 
             var regionSize = new Dictionary<int, int>();
 
@@ -16,9 +16,13 @@ namespace ConnectedGrid
             var oldToNewId = new Dictionary<int, int>();
 
             var currentRegionId = 0;
-            for (var i = 0; i < matrix.Length; i++) {
-                for (var j = 0; j < matrix[i].Length; j++) {
-                    bool cellFilled = matrix[i][j] == 1;
+
+            var n = matrix.GetLength(0);
+            var m = matrix.GetLength(1);
+
+            for (var i = 0; i < n; i++) {
+                for (var j = 0; j < m; j++) {
+                    bool cellFilled = matrix[i, j] == 1;
 
                     if (!cellFilled) { 
                         continue;
@@ -99,25 +103,36 @@ namespace ConnectedGrid
             return id;
         }
 
-
-
-        static (int answer, int[][] matrix) loadMatrix(string file) {
+        static (int answer, int[,] matrix) loadMatrix(string file) {
             var lines = File.ReadAllLines(file);
 
             var size = lines[0].Split(' ').Select(p => Int32.Parse(p)).ToArray();
             var answer = Int32.Parse(lines[1]);
 
-            var matrix = new int[size[0]][];
+            var n = size[0];
+            var m = size[1];
+            var matrix = new int[n, m];
 
             Console.WriteLine($"Loading matrix: {file}");
-            for (int i = 0; i < size[0]; i++) {
+            Console.WriteLine($"Size: {n} x {m}");
+            for (int i = 0; i < n; i++) {
+                // purely to print the lines
                 Console.WriteLine(lines[i + 2]);
+
                 // have to offset lines 2
                 // Assumes the width is correct
-                matrix[i] = lines[i + 2].Split(' ').Select(p => Int32.Parse(p)).ToArray();
-            }
+                var columns = lines[i + 2].Split(' ').Select(p => Int32.Parse(p)).ToArray();
 
+                if (columns.Length != m) {
+                    throw new Exception($"Detected invalid row, column count {columns.Length} doesn't match expected size of {m}");
+                }
+
+                for (var j = 0; j < m; j++) {
+                    matrix[i, j] = columns[j];
+                }
+            }
             Console.WriteLine($"Expected Answer: {answer}");
+
             return (answer, matrix);
         }
 
@@ -127,10 +142,17 @@ namespace ConnectedGrid
             var files = Directory.EnumerateFiles("tests");
 
             foreach (var file in files) {
-                var (expectedAnswer, matrix) = loadMatrix(file);
-                var maxRegion = ConnectedCell(matrix);
-                Console.WriteLine($"Computed answer: {maxRegion}");
-                Console.WriteLine($"Passed: {expectedAnswer == maxRegion}");
+                try {
+                    var (expectedAnswer, matrix) = loadMatrix(file);
+                    var maxRegion = ConnectedCell(matrix);
+                    Console.WriteLine($"Computed answer: {maxRegion}");
+                    Console.WriteLine($"Passed: {expectedAnswer == maxRegion}");
+                } 
+                catch (Exception e) {
+                    Console.WriteLine(e.Message);
+                    continue;
+                }
+
             }
         }
     }
