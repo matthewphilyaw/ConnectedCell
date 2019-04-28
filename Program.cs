@@ -8,12 +8,9 @@ namespace ConnectedGrid
     class Program
     {
 
-        static int ConnectedCell(int[,] matrix) {
-            var cellRegionIds = new Dictionary<string, int>(); 
+        static (int, int[,]) ConnectedCell(int[,] matrix) {
+            // keep track of regions by id
             var regionSize = new Dictionary<int, int>();
-
-            // store mapping from old to new
-            var oldToNewId = new Dictionary<int, int>();
 
             var currentRegionId = 0;
 
@@ -23,67 +20,52 @@ namespace ConnectedGrid
             for (var i = 0; i < n; i++) {
                 for (var j = 0; j < m; j++) {
                     bool cellFilled = matrix[i, j] == 1;
+                    int cellRegionId = -1;
 
                     if (!cellFilled) { 
+                        // fill with -1 for region id
+                        // which is not a valid region id
+                        matrix[i, j] = cellRegionId;
                         continue;
                     }
 
-                    int cellRegionId = -1;
+                    cellRegionId = getCellIdAndMergeRegionsIfNeeded(cellRegionId, i, j - 1, regionSize, matrix);
+                    cellRegionId = getCellIdAndMergeRegionsIfNeeded(cellRegionId, i - 1, j - 1, regionSize, matrix);
+                    cellRegionId = getCellIdAndMergeRegionsIfNeeded(cellRegionId, i - 1, j, regionSize, matrix);
+                    cellRegionId = getCellIdAndMergeRegionsIfNeeded(cellRegionId, i - 1, j + 1, regionSize, matrix);
 
-                    var leftCellId = getRegionId(i, j - 1, cellRegionIds, oldToNewId);
-                    var topLeftCellId = getRegionId(i - 1, j - 1, cellRegionIds, oldToNewId);
-                    var topCellId = getRegionId(i - 1, j, cellRegionIds, oldToNewId);
-                    var topRightCellId = getRegionId(i - 1, j + 1, cellRegionIds, oldToNewId);
-
-                    if (leftCellId != -1) {
-                        // could potentially have been merged
-                        cellRegionId = leftCellId;
-                    }
-
-                    cellRegionId = getCellIdAndMergeRegionsIfNeeded(cellRegionId, topLeftCellId, regionSize, oldToNewId);
-                    cellRegionId = getCellIdAndMergeRegionsIfNeeded(cellRegionId, topCellId, regionSize, oldToNewId);
-                    cellRegionId = getCellIdAndMergeRegionsIfNeeded(cellRegionId, topRightCellId, regionSize, oldToNewId);
-
+                    // Cell region id hasn't been set so new region
                     if (cellRegionId == -1) {
                         cellRegionId = currentRegionId++;
                         regionSize.Add(cellRegionId, 0); 
                     }
 
+                    // Set the region id for this cell
+                    matrix[i, j] = cellRegionId;
+
                     // add one for the current cell
-                    cellRegionIds.Add(cordinatesToKey(i, j), cellRegionId);
                     regionSize[cellRegionId]++;
                 }
             } 
 
             var maxRegion = regionSize.Values.DefaultIfEmpty(0).Max();
-
-            return maxRegion;
+            return (maxRegion, matrix);
         }
 
-        static string cordinatesToKey(int i, int j) {
-            return String.Format("{0}{1}", i.ToString(), j.ToString());
-        }
-
-        static int getRegionId(int i, int j, Dictionary<string, int> cellRegionIds, Dictionary<int, int> oldToNewMap) {
-            var key = cordinatesToKey(i, j);
-
-            if (!cellRegionIds.ContainsKey(key)) {
-                return -1;
-            }
-
-            var id = cellRegionIds[key];
-
-            // should never loop around, but potentially a bad idea
-            while (oldToNewMap.ContainsKey(id)) {
-                id = oldToNewMap[id];    
-            };
-
-            return id;
-        }
-
-        static int getCellIdAndMergeRegionsIfNeeded(int currentCellRegionId, int connectedCellRegionId, Dictionary<int,int> regionSize, Dictionary<int, int> oldToNewId) {
+        static int getCellIdAndMergeRegionsIfNeeded(int currentCellRegionId, int row, int column, Dictionary<int,int> regionSize, int[,] matrix) {
             var id = currentCellRegionId;
 
+            var m = matrix.GetLength(1);
+
+            // index is out of bounds
+            // row will not be greater than n, no check
+            if (row < 0 || column < 0 || column >= m) {
+                return id;
+            }
+
+            var connectedCellRegionId = matrix[row, column];
+
+            // This would be a non filled cell, so nothing to do here
             if (connectedCellRegionId == -1) {
                 return id;
             }
@@ -92,12 +74,20 @@ namespace ConnectedGrid
             if (id == -1) {
                 id = connectedCellRegionId;
             } 
+
             // Otherwise if it is set and not equal the topLeftCellId
             // then merge regions
             else if (id != connectedCellRegionId) {
-                regionSize[currentCellRegionId] += regionSize[connectedCellRegionId];
-                regionSize.Remove(connectedCellRegionId);
-                oldToNewId[connectedCellRegionId] = currentCellRegionId;
+                // Region id gets removed, so if already removed from another cell in that region
+                // so need to check
+                if (regionSize.ContainsKey(connectedCellRegionId)) {
+                    regionSize[currentCellRegionId] += regionSize[connectedCellRegionId];
+                    regionSize.Remove(connectedCellRegionId);
+                }
+
+                // set the connected cell id to the new region id
+                // always need to set this
+                matrix[row, column] = id;
             }
 
             return id;
@@ -115,10 +105,8 @@ namespace ConnectedGrid
 
             Console.WriteLine($"Loading matrix: {file}");
             Console.WriteLine($"Size: {n} x {m}");
+            Console.WriteLine($"Expected Answer: {answer}");
             for (int i = 0; i < n; i++) {
-                // purely to print the lines
-                Console.WriteLine(lines[i + 2]);
-
                 // have to offset lines 2
                 // Assumes the width is correct
                 var columns = lines[i + 2].Split(' ').Select(p => Int32.Parse(p)).ToArray();
@@ -131,9 +119,23 @@ namespace ConnectedGrid
                     matrix[i, j] = columns[j];
                 }
             }
-            Console.WriteLine($"Expected Answer: {answer}");
 
             return (answer, matrix);
+        }
+
+        static void printMatrix(int[,] matrix) {
+            for (var i = 0; i < matrix.GetLength(0); i++) {
+                for (var j = 0; j < matrix.GetLength(1); j++) {
+                    var cell = matrix[i, j];
+                    if (cell < 0) {
+                        Console.Write($"{cell} ");
+                    }
+                    else {
+                        Console.Write($" {cell} ");
+                    }
+                }
+                Console.WriteLine();
+            }
         }
 
         static void Main(string[] args)
@@ -144,9 +146,18 @@ namespace ConnectedGrid
             foreach (var file in files) {
                 try {
                     var (expectedAnswer, matrix) = loadMatrix(file);
-                    var maxRegion = ConnectedCell(matrix);
+
+                    Console.WriteLine("Matrix before computation:");
+                    printMatrix(matrix);
+
+                    var (maxRegion, resultingMatrix) = ConnectedCell(matrix);
+
+                    Console.WriteLine("Matrix after computation:");
+                    printMatrix(resultingMatrix);
+
                     Console.WriteLine($"Computed answer: {maxRegion}");
                     Console.WriteLine($"Passed: {expectedAnswer == maxRegion}");
+                    Console.WriteLine();
                 } 
                 catch (Exception e) {
                     Console.WriteLine(e.Message);
