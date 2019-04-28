@@ -74,10 +74,10 @@ namespace ConnectedGrid
             if (id == -1) {
                 id = connectedCellRegionId;
             } 
-
-            // Otherwise if it is set and not equal the topLeftCellId
-            // then merge regions
             else if (id != connectedCellRegionId) {
+                // Otherwise if it is set and not equal the topLeftCellId
+                // then merge regions
+
                 // Region id gets removed, so if already removed from another cell in that region
                 // so need to check
                 if (regionSize.ContainsKey(connectedCellRegionId)) {
