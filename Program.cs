@@ -93,7 +93,9 @@ namespace ConnectedGrid
             var files = Directory.EnumerateFiles("tests");
 
             var algorithms = new List<ILargestRegionFinder>() {
-                new ScanningMatrix()
+                new ScanningMatrix(),
+                new DepthFirstSearchRecursion(),
+                new DepthFirstSearchNoRecursion()
             };
 
             foreach (var file in files) {

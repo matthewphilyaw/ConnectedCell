@@ -91,9 +91,5 @@ namespace ConnectedGrid.Algorithm
 
             return id;
         }
-
-        public override string ToString() {
-            return "Scanning Matrix";
-        }
     }
 }
